@@ -34,9 +34,7 @@ On first run the app will prompt to locate your Split Data folder (or it will au
 
 Before running the script, ensure you have the following installed:
 
-* **Python 3.x**: Download and install from [python.org](https://www.python.org/downloads/).
-
----
+- **Python 3.x**: Download and install from [python.org](https://www.python.org/downloads/).
 
 ## 🛠️ Usage
 
@@ -66,7 +64,3 @@ Before running the script, ensure you have the following installed:
 ## 📄 License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
----
-
-
