@@ -22,7 +22,6 @@ TXT2CSV — Quick Readme
 4) Icon and images
    - If `icon.png` is missing, the tool will create a default placeholder next to the script/exe.
    - To use your own icon, place `icon.png` in the repo root before running the build; the batch tries to convert it to `icon.ico`.
-   - Placeholder screenshots are in the `img/` folder.
 
 5) Important files
    - `headers.json` and `CarNames.json`: used by the GUI (these are bundled into the EXE by the build script).
@@ -32,5 +31,3 @@ TXT2CSV — Quick Readme
 6) Troubleshooting
    - If the GUI can't find `headers.json` or `CarNames.json`, verify those files exist in the repo root or the same folder as the EXE when running the packaged app.
    - If builds fail, inspect the console output from PyInstaller for missing modules or data files.
-
-If you want, I can also add a short INSTALL.txt or expand this into the main README with these instructions. Let me know which you prefer.

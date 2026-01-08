@@ -25,5 +25,3 @@ TXT2CSV — Quick Start for EXE Users
 
 6) Logs / advanced troubleshooting
    - The single-file EXE runs without a console window. If you need logs, run the non-compiled script (`TXT2CSVv0.2.py`) with Python to see console output.
-
-If you want, I can create a small GUI menu item later to "Clear saved Folder" so deleting `config.json` isn't required.
