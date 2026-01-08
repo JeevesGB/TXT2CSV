@@ -2,6 +2,7 @@ import json
 import csv
 import os
 import base64
+import sys
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
@@ -81,7 +82,9 @@ class CSVGeneratorApp:
     # ---------- Load JSON ----------
     def load_schema(self):
         try:
-            with open(JSON_SCHEMA_FILE, "r", encoding="utf-8") as f:
+            base = getattr(sys, '_MEIPASS', os.path.dirname(__file__))
+            path = os.path.join(base, JSON_SCHEMA_FILE)
+            with open(path, "r", encoding="utf-8") as f:
                 return json.load(f)
         except Exception as e:
             messagebox.showerror("Schema Error", f"Failed to load JSON:\n{e}")
@@ -90,7 +93,9 @@ class CSVGeneratorApp:
     # ---------- Load Car Names JSON ----------
     def load_car_names(self):
         try:
-            with open(CAR_NAMES_FILE, "r", encoding="utf-8") as f:
+            base = getattr(sys, '_MEIPASS', os.path.dirname(__file__))
+            path = os.path.join(base, CAR_NAMES_FILE)
+            with open(path, "r", encoding="utf-8") as f:
                 return json.load(f)
         except Exception as e:
             messagebox.showerror("CarNames Error", f"Failed to load CarNames JSON:\n{e}")
@@ -219,7 +224,10 @@ class CSVGeneratorApp:
             self.choose_split_folder()
 
     def load_config(self):
-        cfg_path = os.path.join(os.path.dirname(__file__), CONFIG_FILE)
+        if getattr(sys, 'frozen', False):
+            cfg_path = os.path.join(os.path.dirname(sys.executable), CONFIG_FILE)
+        else:
+            cfg_path = os.path.join(os.path.dirname(__file__), CONFIG_FILE)
         try:
             if os.path.isfile(cfg_path):
                 with open(cfg_path, 'r', encoding='utf-8') as f:
@@ -229,7 +237,10 @@ class CSVGeneratorApp:
         return {}
 
     def save_config(self, cfg):
-        cfg_path = os.path.join(os.path.dirname(__file__), CONFIG_FILE)
+        if getattr(sys, 'frozen', False):
+            cfg_path = os.path.join(os.path.dirname(sys.executable), CONFIG_FILE)
+        else:
+            cfg_path = os.path.join(os.path.dirname(__file__), CONFIG_FILE)
         try:
             with open(cfg_path, 'w', encoding='utf-8') as f:
                 json.dump(cfg, f, indent=2)
@@ -238,10 +249,10 @@ class CSVGeneratorApp:
 
     # ---------- Icon / Splash helpers ----------
     def ensure_icon_file(self):
-        try:
+        if getattr(sys, 'frozen', False):
+            base = os.path.dirname(sys.executable)
+        else:
             base = os.path.dirname(__file__)
-        except Exception:
-            base = os.getcwd()
         path = os.path.join(base, ICON_FILE)
         if os.path.isfile(path):
             return path
@@ -257,11 +268,17 @@ class CSVGeneratorApp:
 
     def set_window_icon(self):
         try:
-            icon_path = os.path.join(os.path.dirname(__file__), ICON_FILE)
-            img = tk.PhotoImage(file=icon_path)
-            # keep reference to avoid GC
-            self.root.iconphoto(False, img)
-            self._icon_img = img
+            base = getattr(sys, '_MEIPASS', os.path.dirname(__file__))
+            icon_path = os.path.join(base, ICON_FILE)
+            if not os.path.isfile(icon_path):
+                # fallback to exe dir when frozen
+                if getattr(sys, 'frozen', False):
+                    icon_path = os.path.join(os.path.dirname(sys.executable), ICON_FILE)
+            if os.path.isfile(icon_path):
+                img = tk.PhotoImage(file=icon_path)
+                # keep reference to avoid GC
+                self.root.iconphoto(False, img)
+                self._icon_img = img
         except Exception:
             pass
 
