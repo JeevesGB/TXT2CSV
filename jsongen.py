@@ -3,7 +3,7 @@ import csv
 import json
 
 # URL of the raw CSV file
-url = "https://raw.githubusercontent.com/JeevesGB/TXT2CSV/refs/heads/main/carnames.txt"
+url = "---"
 
 # Fetch the CSV data
 response = requests.get(url)

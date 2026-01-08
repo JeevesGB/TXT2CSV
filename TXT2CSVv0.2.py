@@ -5,14 +5,8 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
 JSON_SCHEMA_FILE = "headers.json"
-CAR_NAMES_FILE = "CarNames.json"
-try:
-    with open(CAR_NAMES_FILE, "r", encoding="utf-8") as f:
-        self.car_data = json.load(f)
-except Exception as e:
-    messagebox.showerror("Car Names Error", f"Failed to load {CAR_NAMES_FILE}:\n{e}")
-    self.car_data = []
-    
+CAR_NAMES_FILE = "carnames.json"  # <-- your downloaded CarNames JSON
+
 
 class CollapsibleSection(ttk.Frame):
     def __init__(self, parent, title):
@@ -42,12 +36,13 @@ class CollapsibleSection(ttk.Frame):
 class CSVGeneratorApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("TXT → CSV Generator")
+        self.root.title("TXT → CSV ")
         self.root.geometry("600x700")
-        self.root.minsize(500, 600)
+        self.root.minsize(500, 500)
 
         self.schema = self.load_schema()
         self.entries = {}
+        self.car_names = self.load_car_names()  # load CarNames JSON
 
         self.build_ui()
 
@@ -59,6 +54,27 @@ class CSVGeneratorApp:
         except Exception as e:
             messagebox.showerror("Schema Error", f"Failed to load JSON:\n{e}")
             self.root.destroy()
+
+    # ---------- Load Car Names JSON ----------
+    def load_car_names(self):
+        try:
+            with open(CAR_NAMES_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            messagebox.showerror("CarNames Error", f"Failed to load CarNames JSON:\n{e}")
+            return {}
+
+    # ---------- Lookup CarID ----------
+    def get_car_id(self, name1, name2):
+        name1 = name1.strip().lower()
+        name2 = name2.strip().lower()
+
+        for car in self.car_names:
+            if (car["CarNameFirstPart"].strip().lower() == name1 and
+                car["CarNameSecondPart"].strip().lower() == name2):
+                return car["CarID"]  # STRING like "a-a7r"
+
+        return None
 
     # ---------- UI ----------
     def build_ui(self):
@@ -144,6 +160,27 @@ class CSVGeneratorApp:
 
                 self.entries[field] = (row, entry)
 
+        # ---------- CarID auto-fill ----------
+        if ("CarNameFirstPart" in self.entries and
+            "CarNameSecondPart" in self.entries and
+            "CarID" in self.entries):
+
+            first_entry = self.entries["CarNameFirstPart"][1]
+            second_entry = self.entries["CarNameSecondPart"][1]
+            carid_entry = self.entries["CarID"][1]
+            def update_carid(*_):
+                name1 = first_entry.get()
+                name2 = second_entry.get()
+                car_id = self.get_car_id(name1, name2)
+                carid_entry.delete(0, tk.END)
+                if car_id is not None:
+                    carid_entry.insert(0, str(car_id))
+                else:
+                    carid_entry.insert(0, "")
+
+            first_entry.bind("<KeyRelease>", update_carid)
+            second_entry.bind("<KeyRelease>", update_carid)
+
         self.apply_filter()
 
     # ---------- Search ----------
@@ -157,7 +194,6 @@ class CSVGeneratorApp:
             else:
                 if row.winfo_ismapped():
                     row.forget()
-
 
     # ---------- CSV helpers ----------
     def flattened_headers(self):
