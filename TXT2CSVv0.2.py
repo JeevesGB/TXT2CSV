@@ -5,7 +5,14 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
 JSON_SCHEMA_FILE = "headers.json"
-
+CAR_NAMES_FILE = "CarNames.json"
+try:
+    with open(CAR_NAMES_FILE, "r", encoding="utf-8") as f:
+        self.car_data = json.load(f)
+except Exception as e:
+    messagebox.showerror("Car Names Error", f"Failed to load {CAR_NAMES_FILE}:\n{e}")
+    self.car_data = []
+    
 
 class CollapsibleSection(ttk.Frame):
     def __init__(self, parent, title):
