@@ -4,8 +4,8 @@ import os
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
-JSON_SCHEMA_FILE = "headers.json"
-CAR_NAMES_FILE = "carnames.json"  # <-- your downloaded CarNames JSON
+JSON_SCHEMA_FILE = "version 0.2/headers.json"
+CAR_NAMES_FILE = "version 0.2/carnames.json" 
 
 
 class CollapsibleSection(ttk.Frame):
@@ -81,13 +81,12 @@ class CSVGeneratorApp:
         top = ttk.Frame(self.root, padding=10)
         top.pack(fill="x")
 
-        # Removed Data Type selector and search — tree view will open CSVs directly
 
-        # Main area: left = tree view, right = form (scrollable)
+
         main_paned = ttk.Panedwindow(self.root, orient="horizontal")
         main_paned.pack(fill="both", expand=True, padx=10, pady=5)
 
-        # Left: Tree view for Split Data folder
+
         tree_container = ttk.Frame(main_paned, width=200)
         main_paned.add(tree_container, weight=1)
         ttk.Label(tree_container, text="Split Data: ").pack(anchor="w")
@@ -99,7 +98,7 @@ class CSVGeneratorApp:
         self.tree.pack(fill="both", expand=True)
         self.tree.bind("<Double-1>", self.on_tree_double)
 
-        # Right: Form area (scrollable canvas)
+
         container = ttk.Frame(main_paned)
         main_paned.add(container, weight=4)
 
@@ -115,7 +114,7 @@ class CSVGeneratorApp:
             lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
         )
 
-        # Ensure the inner frame (form) matches the canvas width so entries can expand
+
         self.canvas.bind(
             "<Configure>",
             lambda e: self.canvas.itemconfig(self.form_window, width=e.width)
@@ -126,7 +125,6 @@ class CSVGeneratorApp:
 
         self.canvas.bind_all("<MouseWheel>", self.on_mousewheel)
 
-        # Bottom
         bottom = ttk.Frame(self.root, padding=10)
         bottom.pack(fill="x")
 
@@ -136,18 +134,10 @@ class CSVGeneratorApp:
         self.status = tk.StringVar(value="Ready")
         ttk.Label(self.root, textvariable=self.status, relief="sunken", anchor="w").pack(fill="x")
 
-    # ---------- Mouse wheel ----------
     def on_mousewheel(self, event):
         self.canvas.yview_scroll(-1 * int(event.delta / 120), "units")
 
-    # ---------- Build Fields ----------
     def update_fields(self, *_):
-        # kept for backward compatibility but not used now
-        return
-
-    # ---------- Search ----------
-    def apply_filter(self):
-        # Search removed
         return
 
     # ---------- CSV helpers ----------
