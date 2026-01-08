@@ -1,12 +1,22 @@
 import json
 import csv
 import os
+import base64
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 
 JSON_SCHEMA_FILE = "headers.json"
-CAR_NAMES_FILE = "carnames.json"  # <-- your downloaded CarNames JSON
+CAR_NAMES_FILE = "carnames.json"  
 CONFIG_FILE = "config.json"
+ICON_FILE = "icon.png"
+ICON_B64 = (
+    "iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAACXBIWXMAAAsTAAALEwEAmpwYAAAA"
+    "B3RJTUUH5QcGDC8Qv0k2VwAAABl0RVh0Q29tbWVudABDcmVhdGVkIHdpdGggR0lNUFeBDhcAAAAJ"
+    "cEhZcwAACxMAAAsTAQCanBgAAAAZdEVYdFNvZnR3YXJlAEFkb2JlIEltYWdlUmVhZHlxyWU8AAAB"
+    "K0lEQVQ4y2NgGAWjYBSMglEwCqQGJgYGBg+M8wMDAw8P///w8mJiYGBgYGRkZGBgYGBgYGBgYmJiY"
+    "GJgYGBgYmBgYGBgYGJgYGBgYGJgYGBgYGJgYGBgYGJgYGBgYGJgYGBgYGJgYGBgYGBgYGJiYGBgY"
+    "GJgYGBgYGJgYGBgYGAEAAwABBgAABrQAAQAAAABJRU5ErkJggg=="
+)
 
 
 class CollapsibleSection(ttk.Frame):
@@ -37,7 +47,7 @@ class CollapsibleSection(ttk.Frame):
 class CSVGeneratorApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("TXT → CSV ")
+        self.root.title("TXT → CSV")
         self.root.geometry("600x700")
         self.root.minsize(500, 500)
 
@@ -45,9 +55,14 @@ class CSVGeneratorApp:
         self.entries = {}
         self.car_names = self.load_car_names()  
 
+        # ensure icon exists before building UI
+        try:
+            self.ensure_icon_file()
+        except Exception:
+            pass
+
         self.build_ui()
 
-        # load config and auto-open split folder if present
         self.config = self.load_config()
         split = self.config.get("split_data_path")
         if split and os.path.isdir(split):
@@ -56,12 +71,11 @@ class CSVGeneratorApp:
             except Exception:
                 pass
         else:
-            # Prompt the user to locate the Split Data folder on first load
-            # use after small delay so the main window appears before the dialog
+
             try:
                 self.root.after(100, self.prompt_for_split_folder)
             except Exception:
-                # fallback: call directly
+
                 self.prompt_for_split_folder()
 
     # ---------- Load JSON ----------
@@ -99,13 +113,11 @@ class CSVGeneratorApp:
         top = ttk.Frame(self.root, padding=10)
         top.pack(fill="x")
 
-        # Removed Data Type selector and search — tree view will open CSVs directly
 
-        # Main area: left = tree view, right = form (scrollable)
         main_paned = ttk.Panedwindow(self.root, orient="horizontal")
         main_paned.pack(fill="both", expand=True, padx=10, pady=5)
 
-        # Left: Tree view for Split Data folder
+
         tree_container = ttk.Frame(main_paned, width=200)
         main_paned.add(tree_container, weight=1)
         ttk.Label(tree_container, text="Split Data: ").pack(anchor="w")
@@ -117,7 +129,7 @@ class CSVGeneratorApp:
         self.tree.pack(fill="both", expand=True)
         self.tree.bind("<Double-1>", self.on_tree_double)
 
-        # Right: Form area (scrollable canvas)
+
         container = ttk.Frame(main_paned)
         main_paned.add(container, weight=4)
 
@@ -133,7 +145,7 @@ class CSVGeneratorApp:
             lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all"))
         )
 
-        # Ensure the inner frame (form) matches the canvas width so entries can expand
+
         self.canvas.bind(
             "<Configure>",
             lambda e: self.canvas.itemconfig(self.form_window, width=e.width)
@@ -144,7 +156,7 @@ class CSVGeneratorApp:
 
         self.canvas.bind_all("<MouseWheel>", self.on_mousewheel)
 
-        # Bottom
+
         bottom = ttk.Frame(self.root, padding=10)
         bottom.pack(fill="x")
 
@@ -153,6 +165,11 @@ class CSVGeneratorApp:
 
         self.status = tk.StringVar(value="Ready")
         ttk.Label(self.root, textvariable=self.status, relief="sunken", anchor="w").pack(fill="x")
+        # set window icon (if available)
+        try:
+            self.set_window_icon()
+        except Exception:
+            pass
 
     # ---------- Mouse wheel ----------
     def on_mousewheel(self, event):
@@ -185,7 +202,7 @@ class CSVGeneratorApp:
         if not path:
             return
         self.load_split_data(path)
-        # save to config
+
         try:
             self.config['split_data_path'] = path
             self.save_config(self.config)
@@ -197,7 +214,6 @@ class CSVGeneratorApp:
         try:
             res = messagebox.askyesno("Split Data Required", msg)
         except Exception:
-            # if messagebox fails for some reason, don't block startup
             return
         if res:
             self.choose_split_folder()
@@ -220,8 +236,37 @@ class CSVGeneratorApp:
         except Exception:
             pass
 
+    # ---------- Icon / Splash helpers ----------
+    def ensure_icon_file(self):
+        try:
+            base = os.path.dirname(__file__)
+        except Exception:
+            base = os.getcwd()
+        path = os.path.join(base, ICON_FILE)
+        if os.path.isfile(path):
+            return path
+        try:
+            data = base64.b64decode(ICON_B64)
+            with open(path, 'wb') as f:
+                f.write(data)
+            return path
+        except Exception:
+            return None
+
+    
+
+    def set_window_icon(self):
+        try:
+            icon_path = os.path.join(os.path.dirname(__file__), ICON_FILE)
+            img = tk.PhotoImage(file=icon_path)
+            # keep reference to avoid GC
+            self.root.iconphoto(False, img)
+            self._icon_img = img
+        except Exception:
+            pass
+
     def load_split_data(self, root_path):
-        # Clear existing
+
         for i in self.tree.get_children():
             self.tree.delete(i)
 
@@ -230,18 +275,18 @@ class CSVGeneratorApp:
 
         for dirpath, dirnames, filenames in os.walk(root_path):
             parent = path_map.get(dirpath, root_id)
-            # add directories
+
             for d in sorted(dirnames):
                 full = os.path.join(dirpath, d)
                 item_id = self.tree.insert(parent, "end", text=d, open=False, values=[full])
                 path_map[full] = item_id
-            # add files
+
             for f in sorted(filenames):
                 full = os.path.join(dirpath, f)
                 self.tree.insert(parent, "end", text=f, values=[full])
 
     def on_tree_select(self, event):
-        # selection handler not used; double-click opens files
+
         return
 
     def on_tree_double(self, event):
@@ -267,7 +312,7 @@ class CSVGeneratorApp:
             headers = rows[0]
             values = rows[1] if len(rows) > 1 else []
 
-            # Build form from headers (clear existing)
+
             self.build_form_from_headers(headers)
 
             for h, v in zip(headers, values):
@@ -310,12 +355,12 @@ class CSVGeneratorApp:
             messagebox.showerror("Save Error", str(e))
 
     def build_form_from_headers(self, headers):
-        # clear existing form
+
         for w in self.form_frame.winfo_children():
             w.destroy()
         self.entries.clear()
 
-        # normalize headers (strip/BOM)
+
         clean_headers = []
         for h in headers:
             hh = h if isinstance(h, str) else str(h)
@@ -339,7 +384,7 @@ class CSVGeneratorApp:
 
             self.entries[field] = (row, entry)
 
-        # CarId auto-fill support if fields present
+
         if ("CarNameFirstPart" in self.entries and
             "CarNameSecondPart" in self.entries and
             "CarId" in self.entries):

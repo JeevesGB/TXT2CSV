@@ -6,6 +6,30 @@ A simple Python script to convert text files into `.csv` format for Gran Turismo
 
 ---
 
+## 🖥️ New GUI Tool (v0.2+)
+
+This repository now includes a Updated GUI (`TXT2CSVv0.2.py`) to browse and edit split CSV data:
+
+- Left-hand Tree View: choose "Split Data" folder and browse subfolders/files.
+- Double-click a `.csv` in the tree to open it — the form is built from the CSV headers.
+- Responsive form: input boxes expand to fill available width.
+- CarId autofill: when `CarNameFirstPart` and `CarNameSecondPart` are present, `CarId` auto-populates.
+- The selected Split Data folder is remembered in `config.json`.
+
+### Screenshots
+
+CSV Editing:
+
+![CSV Edit](img/1.png)
+
+### Running the GUI
+
+```bash
+python TXT2CSVv0.2.py
+```
+
+On first run the app will prompt to locate your Split Data folder (or it will auto-open the previously saved folder from `config.json`).
+
 ## 📦 Prerequisites
 
 Before running the script, ensure you have the following installed:
@@ -42,3 +66,7 @@ Before running the script, ensure you have the following installed:
 ## 📄 License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+
+---
+
+
