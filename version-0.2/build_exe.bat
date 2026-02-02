@@ -12,7 +12,7 @@ pyinstaller ^
  --onefile ^
  --windowed ^
  --name TXT2CSV ^
- --icon icon.ico ^
+ --icon ICO.ico ^
  --add-data "headers.json;." ^
  --add-data "carnames.json;." ^
  TXT2CSVv0.2.py
