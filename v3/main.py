@@ -2,16 +2,13 @@ import sys
 import os
 import json
 import base64
-import shutil
-import time
-
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QTreeView, QFileDialog, QMessageBox,
-    QScrollArea, QStatusBar, QGroupBox, QLineEdit, QProgressDialog,
-    QSplitter, QFormLayout
+    QScrollArea, QStatusBar, QGroupBox, QLineEdit, QSplitter,
+    QFormLayout, QTextEdit, QTabWidget
 )
-from PyQt6.QtGui import QIcon
+from PyQt6.QtGui import QIcon, QTextCursor
 from PyQt6.QtCore import Qt, QTimer, QProcess
 
 try:
@@ -33,8 +30,8 @@ ICON_B64 = (
     "B3RJTUUH5QcGDC8Qv0k2VwAAABl0RVh0Q29tbWVudABDcmVhdGVkIHdpdGggR0lNUFeBDhcAAAAJ"
     "cEhZcwAACxMAAAsTAQCanBgAAAAZdEVYdFNvZnR3YXJlAEFkb2JlIEltYWdlUmVhZHlxyWU8AAAB"
     "K0lEQVQ4y2NgGAWjYBSMglEwCqQGJgYGBg+M8wMDAw8P///w8mJiYGBgYGRkZGBgYGBgYGBgYmJiY"
-    "GJgYGBgYmBgYGBgYGJgYGBgYGJgYGBgYGJgYGBgYGJgYGBgYGJgYGBgYGJgYGBgYGBgYGJiYGBgY"
-    "GJgYGBgYGJgYGBgYGAEAAwABBgAABrQAAQAAAABJRU5ErkJggg=="
+    "GJgYGBgYmBgYGBgYGJgYGBgYGJgYGBgYGJgYGBgYGJgYGBgYGJgYGBgYGBgYGJiYGBgYGJgYGBgY"
+    "GJgYGBgYGAEAAwABBgAABrQAAQAAAABJRU5ErkJggg=="
 )
 
 
@@ -51,7 +48,6 @@ def load_stylesheet(app, filename):
             app.setStyleSheet(f.read())
     else:
         print(f"Stylesheet not found: {path}")
-
 
 
 # ---- Main App ----
@@ -113,12 +109,12 @@ class CSVGeneratorApp(QMainWindow):
         splitter = QSplitter(Qt.Orientation.Horizontal)
         main_layout.addWidget(splitter)
 
-    # ---- LEFT PANEL ----
+        # ---- LEFT PANEL ----
         left_widget = QWidget()
         left_layout = QVBoxLayout(left_widget)
         left_layout.setSpacing(12)
 
-    # --- Split Data + CSV Buttons ---
+        # --- Controls ---
         controls_group = QGroupBox("Controls")
         controls_layout = QVBoxLayout()
 
@@ -127,6 +123,7 @@ class CSVGeneratorApp(QMainWindow):
 
         self.split_btn = QPushButton("Run GT2DataSplitter")
         self.split_btn.clicked.connect(self.run_splitter)
+
         self.import_btn = QPushButton("Import CSV")
         self.import_btn.setShortcut("Ctrl+O")
         self.import_btn.clicked.connect(self.import_csv)
@@ -135,17 +132,16 @@ class CSVGeneratorApp(QMainWindow):
         self.export_btn.setShortcut("Ctrl+S")
         self.export_btn.clicked.connect(self.export_csv)
 
-    # Add buttons to the controls layout
         controls_layout.addWidget(self.open_btn)
         controls_layout.addWidget(self.split_btn)
-        controls_layout.addSpacing(8)  # Small spacing between split and CSV buttons
+        controls_layout.addSpacing(8)
         controls_layout.addWidget(self.import_btn)
         controls_layout.addWidget(self.export_btn)
 
         controls_group.setLayout(controls_layout)
         left_layout.addWidget(controls_group)
 
-    # --- Tree view ---
+        # --- Tree view ---
         browser_group = QGroupBox("Split Data Files")
         browser_layout = QVBoxLayout()
 
@@ -170,10 +166,19 @@ class CSVGeneratorApp(QMainWindow):
 
         splitter.addWidget(left_widget)
 
-    # ---- RIGHT PANEL ----
+        # ---- RIGHT PANEL ----
         right_widget = QWidget()
         right_layout = QVBoxLayout(right_widget)
         right_layout.setSpacing(12)
+
+        # --- Tabs for CSV form and output ---
+        self.tabs = QTabWidget()
+        right_layout.addWidget(self.tabs)
+
+        # --- CSV Form Tab ---
+        self.csv_tab = QWidget()
+        self.csv_tab_layout = QVBoxLayout(self.csv_tab)
+        self.csv_tab_layout.setContentsMargins(0, 0, 0, 0)
 
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
@@ -182,15 +187,30 @@ class CSVGeneratorApp(QMainWindow):
         self.form_layout = QVBoxLayout(self.form_container)
         self.scroll.setWidget(self.form_container)
 
-        right_layout.addWidget(self.scroll)
-        splitter.addWidget(right_widget)
+        self.csv_tab_layout.addWidget(self.scroll)
+        self.tabs.addTab(self.csv_tab, "CSV Fields")
 
+        # --- Output Tab (hidden by default) ---
+        self.output_tab = QWidget()
+        self.output_layout = QVBoxLayout(self.output_tab)
+        self.output_text = QTextEdit()
+        self.output_text.setReadOnly(True)
+        self.output_text.setStyleSheet(
+            "background-color: black; color: lightgreen; font-family: Consolas;"
+        )
+        self.output_layout.addWidget(self.output_text)
+        self.tabs.addTab(self.output_tab, "GT2DataSplitter Output")
+        self.tabs.setTabEnabled(self.tabs.indexOf(self.output_tab), False)
+
+        splitter.addWidget(right_widget)
         splitter.setSizes([350, 1000])
 
         self.status = QStatusBar()
         self.setStatusBar(self.status)
         self.status.showMessage("Ready")
 
+        # ---- QProcess for running EXE ----
+        self.process = None
 
     # ---------- Split Data ----------
     def choose_split_folder(self):
@@ -213,12 +233,16 @@ class CSVGeneratorApp(QMainWindow):
 
     # ---------- CSV ----------
     def import_csv(self):
-        path, _ = QFileDialog.getOpenFileName(self, "Open CSV", filter="CSV Files (*.csv)")
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Open CSV", filter="CSV Files (*.csv)"
+        )
         if path:
             self.load_csv_to_entries(path)
 
     def export_csv(self):
-        path, _ = QFileDialog.getSaveFileName(self, "Save CSV", filter="CSV Files (*.csv)")
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Save CSV", filter="CSV Files (*.csv)"
+        )
         if not path:
             return
 
@@ -262,28 +286,57 @@ class CSVGeneratorApp(QMainWindow):
         self.form_layout.addWidget(group)
         self.form_layout.addStretch()
 
-    # ---------- Splitter ----------
+    # ---------- Splitter with output tab ----------
     def run_splitter(self):
         split_path = self.config.get("split_data_path")
+        exe_path = resource_path("tool/GT2DataSplitter.exe")
 
         if not split_path or not os.path.isdir(split_path):
-            QMessageBox.warning(self, "SplitData not set", "Please select your SplitData folder first.")
+            QMessageBox.warning(
+                self, "SplitData not set", "Please select your SplitData folder first."
+            )
             return
 
-        exe_path = resource_path("tool/GT2DataSplitter.exe")
         if not os.path.isfile(exe_path):
-            QMessageBox.critical(self, "Error", f"GT2DataSplitter.exe not found:\n{exe_path}")
+            QMessageBox.critical(
+                self, "Error", f"GT2DataSplitter.exe not found:\n{exe_path}"
+            )
             return
 
-        process = QProcess(self)
-        process.setWorkingDirectory(split_path)
+        # Confirm with user
+        reply = QMessageBox.question(
+            self,
+            "Run GT2DataSplitter",
+            "Are you sure you want to run GT2DataSplitter? This may create thousands of CSV files.",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
 
-        success = process.startDetached(exe_path, [], split_path)
+        # Enable output tab and switch to it
+        self.tabs.setTabEnabled(self.tabs.indexOf(self.output_tab), True)
+        self.tabs.setCurrentWidget(self.output_tab)
+        self.output_text.clear()
 
-        if success:
-            self.status.showMessage("GT2DataSplitter launched")
-        else:
-            QMessageBox.critical(self, "Error", "Failed to launch GT2DataSplitter")
+        self.process = QProcess(self)
+        self.process.setWorkingDirectory(split_path)
+        self.process.setProgram(exe_path)
+        self.process.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
+        self.process.readyReadStandardOutput.connect(self.handle_stdout)
+        self.process.finished.connect(self.process_finished)
+        self.process.start()
+        self.status.showMessage("GT2DataSplitter running...")
+
+    def handle_stdout(self):
+        if self.process:
+            text = self.process.readAllStandardOutput().data().decode()
+            self.output_text.moveCursor(QTextCursor.MoveOperation.End)
+            self.output_text.insertPlainText(text)
+            self.output_text.moveCursor(QTextCursor.MoveOperation.End)
+
+    def process_finished(self):
+        self.status.showMessage("GT2DataSplitter finished")
+        self.output_text.append("\n--- Process Finished ---\n")
 
     # ---------- Config ----------
     def load_config(self):
