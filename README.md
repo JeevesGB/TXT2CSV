@@ -6,7 +6,7 @@ A simple Python script to convert text files into `.csv` format for Gran Turismo
 
 ---
 
-## 🖥️ New GUI Tool (v0.2+)
+## 🖥️ New GUI Tool (v1.0)
 
 This repository now includes a Updated GUI (`TXT2CSVv0.2.py`) to browse and edit split CSV data:
 
