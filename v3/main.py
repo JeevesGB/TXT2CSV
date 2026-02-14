@@ -99,9 +99,14 @@ class CSVGeneratorApp(QMainWindow):
         left = QVBoxLayout()
         layout.addLayout(left, 1)
 
-        left.addWidget(QLabel("Split Data"))
+        left.addWidget(QLabel("Open Split Data Folder"))
         btn = QPushButton("Choose Folder")
         btn.clicked.connect(self.choose_split_folder)
+        left.addWidget(btn)
+
+        left.addWidget(QLabel("Run GT2DataSplitter.exe"))
+        btn = QPushButton("Run Splitter")
+        btn.clicked.connect(self.run_splitter)
         left.addWidget(btn)
 
         self.model = QFileSystemModel()
