@@ -1,9 +1,11 @@
+# ui.py
 import sys
 import os
 import json
 import base64
 import shutil
 import time
+import subprocess  # <-- added
 
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
@@ -51,7 +53,6 @@ def load_stylesheet(app, filename):
             app.setStyleSheet(f.read())
     else:
         print(f"Stylesheet not found: {path}")
-
 
 
 # ---- Main App ----
@@ -113,12 +114,12 @@ class CSVGeneratorApp(QMainWindow):
         splitter = QSplitter(Qt.Orientation.Horizontal)
         main_layout.addWidget(splitter)
 
-    # ---- LEFT PANEL ----
+        # ---- LEFT PANEL ----
         left_widget = QWidget()
         left_layout = QVBoxLayout(left_widget)
         left_layout.setSpacing(12)
 
-    # --- Split Data + CSV Buttons ---
+        # --- Split Data + CSV Buttons ---
         controls_group = QGroupBox("Controls")
         controls_layout = QVBoxLayout()
 
@@ -135,17 +136,16 @@ class CSVGeneratorApp(QMainWindow):
         self.export_btn.setShortcut("Ctrl+S")
         self.export_btn.clicked.connect(self.export_csv)
 
-    # Add buttons to the controls layout
         controls_layout.addWidget(self.open_btn)
         controls_layout.addWidget(self.split_btn)
-        controls_layout.addSpacing(8)  # Small spacing between split and CSV buttons
+        controls_layout.addSpacing(8)
         controls_layout.addWidget(self.import_btn)
         controls_layout.addWidget(self.export_btn)
 
         controls_group.setLayout(controls_layout)
         left_layout.addWidget(controls_group)
 
-    # --- Tree view ---
+        # --- Tree view ---
         browser_group = QGroupBox("Split Data Files")
         browser_layout = QVBoxLayout()
 
@@ -170,7 +170,7 @@ class CSVGeneratorApp(QMainWindow):
 
         splitter.addWidget(left_widget)
 
-    # ---- RIGHT PANEL ----
+        # ---- RIGHT PANEL ----
         right_widget = QWidget()
         right_layout = QVBoxLayout(right_widget)
         right_layout.setSpacing(12)
@@ -190,7 +190,6 @@ class CSVGeneratorApp(QMainWindow):
         self.status = QStatusBar()
         self.setStatusBar(self.status)
         self.status.showMessage("Ready")
-
 
     # ---------- Split Data ----------
     def choose_split_folder(self):
@@ -275,15 +274,23 @@ class CSVGeneratorApp(QMainWindow):
             QMessageBox.critical(self, "Error", f"GT2DataSplitter.exe not found:\n{exe_path}")
             return
 
-        process = QProcess(self)
-        process.setWorkingDirectory(split_path)
+        # Prompt user not to close main app
+        QMessageBox.information(
+            self,
+            "GT2DataSplitter Running",
+            "GT2DataSplitter will now run in a separate console.\nPlease DO NOT close this application until it finishes."
+        )
 
-        success = process.startDetached(exe_path, [], split_path)
-
-        if success:
-            self.status.showMessage("GT2DataSplitter launched")
-        else:
-            QMessageBox.critical(self, "Error", "Failed to launch GT2DataSplitter")
+        # Launch GT2DataSplitter in its own console window
+        try:
+            subprocess.Popen(
+                [exe_path, split_path],
+                cwd=split_path,
+                creationflags=subprocess.CREATE_NEW_CONSOLE
+            )
+            self.status.showMessage("GT2DataSplitter launched in new console...")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to launch GT2DataSplitter:\n{e}")
 
     # ---------- Config ----------
     def load_config(self):
@@ -299,14 +306,3 @@ class CSVGeneratorApp(QMainWindow):
             json.dump(cfg, f, indent=2)
 
 
-# ---- Run ----
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    app.setStyle("Fusion")
-
-    load_stylesheet(app, STYLE_FILE)
-
-    win = CSVGeneratorApp()
-    win.show()
-
-    sys.exit(app.exec())
