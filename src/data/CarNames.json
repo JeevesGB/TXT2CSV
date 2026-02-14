@@ -762,12 +762,6 @@
     "Year": "0"
   },
   {
-    "CarId": "frtwn",
-    "NameFirstPart": "Twingo EV",
-    "NameSecondPart": "",
-    "Year": "96"
-  },
-  {
     "CarId": "fv30n",
     "NameFirstPart": "Atlantique",
     "NameSecondPart": "300",
@@ -2419,8 +2413,8 @@
   },
   {
     "CarId": "npron",
-    "NameFirstPart": "Tommykaira",
-    "NameSecondPart": "M20T4",
+    "NameFirstPart": "Infiniti G20",
+    "NameSecondPart": "(J) '91",
     "Year": "91"
   },
   {
