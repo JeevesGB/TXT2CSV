@@ -19,7 +19,7 @@ pyinstaller ^
     --add-data "data\CarNames.json;data" ^
     --add-data "data\config.json;data" ^
     --add-data "data\headers.json;data" ^
-    --add-data "assets\ICO.ico;assets" ^
+    --add-data "assets\ico.ico;assets" ^
     --add-data "assets/styles/dark.qss;assets/styles" ^
     main.py
 
