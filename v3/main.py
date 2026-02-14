@@ -1,33 +1,33 @@
 import sys
 import os
 import json
-import csv
 import base64
 import shutil
 import time
-import subprocess
 
-# ---- PyQt imports ----
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QLabel, QTreeView, QFileDialog, QMessageBox,
-    QScrollArea, QStatusBar, QGroupBox, QLineEdit, QProgressDialog
+    QScrollArea, QStatusBar, QGroupBox, QLineEdit, QProgressDialog,
+    QSplitter, QFormLayout, QDialog, QTextEdit
 )
 from PyQt6.QtGui import QIcon
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer, QProcess
 
-# ---- PyQt6 QFileSystemModel compatibility ----
 try:
     from PyQt6.QtWidgets import QFileSystemModel
 except ImportError:
-    # fallback for PyQt6 < 6.5 or missing QFileSystemModel
     from PyQt6.QtGui import QFileSystemModel
+
 
 # ---- Files ----
 JSON_SCHEMA_FILE = "data/headers.json"
 CAR_NAMES_FILE = "data/CarNames.json"
 CONFIG_FILE = "data/config.json"
-ICON_FILE = "assets/ICO.png"
+ICON_FILE = "assets/ICO.ico"
+STYLE_FILE = "assets/styles/dark.qss"
+
+
 ICON_B64 = (
     "iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAAACXBIWXMAAAsTAAALEwEAmpwYAAAA"
     "B3RJTUUH5QcGDC8Qv0k2VwAAABl0RVh0Q29tbWVudABDcmVhdGVkIHdpdGggR0lNUFeBDhcAAAAJ"
@@ -37,17 +37,36 @@ ICON_B64 = (
     "GJgYGBgYGJgYGBgYGAEAAwABBgAABrQAAQAAAABJRU5ErkJggg=="
 )
 
+
+# ---- Utility ----
+def resource_path(relative_path):
+    base_path = getattr(sys, "_MEIPASS", os.path.dirname(__file__))
+    return os.path.join(base_path, relative_path)
+
+
+def load_stylesheet(app, filename):
+    path = resource_path(filename)
+    if os.path.exists(path):
+        with open(path, "r", encoding="utf-8") as f:
+            app.setStyleSheet(f.read())
+    else:
+        print(f"Stylesheet not found: {path}")
+
+
 # ---- Main App ----
 class CSVGeneratorApp(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("TXT → CSV")
-        self.resize(900, 650)
+
+        self.setWindowTitle("GT2 SplitData CSV Generator")
+        self.resize(1400, 850)
+        self.setMinimumSize(1100, 700)
 
         self.entries = {}
+
         self.ensure_folders()
         self.ensure_icon_file()
-        self.setWindowIcon(QIcon(ICON_FILE))
+        self.setWindowIcon(QIcon(resource_path(ICON_FILE)))
 
         self.schema = self.load_json(JSON_SCHEMA_FILE)
         self.car_names = self.load_json(CAR_NAMES_FILE, default=[])
@@ -61,9 +80,9 @@ class CSVGeneratorApp(QMainWindow):
         else:
             QTimer.singleShot(100, self.prompt_for_split_folder)
 
-    # ---- Helpers ----
+    # ---------- Helpers ----------
     def ensure_folders(self):
-        for folder in ["data", "assets"]:
+        for folder in ["data", "assets", "styles"]:
             os.makedirs(folder, exist_ok=True)
 
     def ensure_icon_file(self):
@@ -72,8 +91,7 @@ class CSVGeneratorApp(QMainWindow):
                 f.write(base64.b64decode(ICON_B64))
 
     def load_json(self, path, default=None):
-        base = getattr(sys, "_MEIPASS", os.path.dirname(__file__))
-        full_path = os.path.join(base, path)
+        full_path = resource_path(path)
         if os.path.isfile(full_path):
             try:
                 with open(full_path, encoding="utf-8") as f:
@@ -82,67 +100,98 @@ class CSVGeneratorApp(QMainWindow):
                 print(f"Failed to load {path}: {e}")
         return default
 
-    def get_car_id(self, a, b):
-        a, b = a.strip().lower(), b.strip().lower()
-        for car in self.car_names:
-            if car["CarNameFirstPart"].lower() == a and car["CarNameSecondPart"].lower() == b:
-                return car["CarId"]
-        return None
-
-    # ---- UI ----
+    # ---------- UI ----------
     def build_ui(self):
         central = QWidget()
         self.setCentralWidget(central)
-        layout = QHBoxLayout(central)
 
-        # LEFT PANEL
-        left = QVBoxLayout()
-        layout.addLayout(left, 1)
+        main_layout = QHBoxLayout(central)
+        main_layout.setContentsMargins(12, 12, 12, 12)
+        main_layout.setSpacing(10)
 
-        left.addWidget(QLabel("Open Split Data Folder"))
-        btn = QPushButton("Choose Folder")
-        btn.clicked.connect(self.choose_split_folder)
-        left.addWidget(btn)
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        main_layout.addWidget(splitter)
 
-        left.addWidget(QLabel("Run GT2DataSplitter.exe"))
-        btn = QPushButton("Run Splitter")
-        btn.clicked.connect(self.run_splitter)
-        left.addWidget(btn)
+        # ---- LEFT PANEL ----
+        left_widget = QWidget()
+        left_layout = QVBoxLayout(left_widget)
+        left_layout.setSpacing(12)
+
+        # --- Split Data + CSV Buttons ---
+        controls_group = QGroupBox("Controls")
+        controls_layout = QVBoxLayout()
+
+        self.open_btn = QPushButton("Open Split Folder")
+        self.open_btn.clicked.connect(self.choose_split_folder)
+
+        self.split_btn = QPushButton("Run GT2DataSplitter")
+        self.split_btn.clicked.connect(self.run_splitter)
+
+        self.import_btn = QPushButton("Import CSV")
+        self.import_btn.setShortcut("Ctrl+O")
+        self.import_btn.clicked.connect(self.import_csv)
+
+        self.export_btn = QPushButton("Generate CSV")
+        self.export_btn.setShortcut("Ctrl+S")
+        self.export_btn.clicked.connect(self.export_csv)
+
+        # Add buttons to the controls layout
+        controls_layout.addWidget(self.open_btn)
+        controls_layout.addWidget(self.split_btn)
+        controls_layout.addSpacing(8)
+        controls_layout.addWidget(self.import_btn)
+        controls_layout.addWidget(self.export_btn)
+
+        controls_group.setLayout(controls_layout)
+        left_layout.addWidget(controls_group)
+
+        # --- Tree view ---
+        browser_group = QGroupBox("Split Data Files")
+        browser_layout = QVBoxLayout()
 
         self.model = QFileSystemModel()
         self.model.setRootPath("")
+
         self.tree = QTreeView()
         self.tree.setModel(self.model)
         self.tree.doubleClicked.connect(self.on_tree_double)
-        left.addWidget(self.tree)
+        self.tree.setAlternatingRowColors(True)
+        self.tree.setUniformRowHeights(True)
+        self.tree.setAnimated(True)
+        self.tree.setIndentation(18)
+        self.tree.setHeaderHidden(True)
 
-        # RIGHT PANEL
-        right = QVBoxLayout()
-        layout.addLayout(right, 3)
+        for i in range(1, self.model.columnCount()):
+            self.tree.hideColumn(i)
+
+        browser_layout.addWidget(self.tree)
+        browser_group.setLayout(browser_layout)
+        left_layout.addWidget(browser_group)
+
+        splitter.addWidget(left_widget)
+
+        # ---- RIGHT PANEL ----
+        right_widget = QWidget()
+        right_layout = QVBoxLayout(right_widget)
+        right_layout.setSpacing(12)
 
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
+
         self.form_container = QWidget()
         self.form_layout = QVBoxLayout(self.form_container)
         self.scroll.setWidget(self.form_container)
-        right.addWidget(self.scroll)
 
-        bottom = QHBoxLayout()
-        right.addLayout(bottom)
+        right_layout.addWidget(self.scroll)
+        splitter.addWidget(right_widget)
 
-        imp = QPushButton("Import CSV")
-        imp.clicked.connect(self.import_csv)
-        bottom.addWidget(imp)
-
-        exp = QPushButton("Generate CSV")
-        exp.clicked.connect(self.export_csv)
-        bottom.addWidget(exp)
+        splitter.setSizes([350, 1000])
 
         self.status = QStatusBar()
         self.setStatusBar(self.status)
         self.status.showMessage("Ready")
 
-    # ---- Split Data ----
+    # ---------- Split Data ----------
     def choose_split_folder(self):
         path = QFileDialog.getExistingDirectory(self, "Select Split Data Folder")
         if not path:
@@ -158,48 +207,10 @@ class CSVGeneratorApp(QMainWindow):
             self.choose_split_folder()
 
     def load_split_data(self, path):
-        self.prompt_backup_split_data(path)
         self.tree.setRootIndex(self.model.index(path))
         self.status.showMessage(f"Loaded {path}")
 
-    # ---- Backup ----
-    def prompt_backup_split_data(self, path):
-        backup = os.path.join(os.path.dirname(path), "SplitData-Copy")
-        if os.path.exists(backup):
-            return
-
-        if QMessageBox.question(
-            self, "Backup Split Data", "Create a backup copy?\n\nSplitData-Copy will be created."
-        ) != QMessageBox.StandardButton.Yes:
-            return
-
-        self.copy_with_progress(path, backup)
-
-    def copy_with_progress(self, src, dst):
-        files = [os.path.join(root, f) for root, _, names in os.walk(src) for f in names]
-        dlg = QProgressDialog("Copying Split Data…", None, 0, len(files), self)
-        dlg.setWindowModality(Qt.WindowModality.ApplicationModal)
-        dlg.show()
-
-        start = time.time()
-        for i, f in enumerate(files, 1):
-            rel = os.path.relpath(f, src)
-            out = os.path.join(dst, rel)
-            os.makedirs(os.path.dirname(out), exist_ok=True)
-            shutil.copy2(f, out)
-
-            elapsed = time.time() - start
-            rate = i / elapsed if elapsed else 0
-            eta = int((len(files) - i) / rate) if rate else 0
-
-            dlg.setValue(i)
-            dlg.setLabelText(f"{i}/{len(files)} files — ETA {eta}s")
-            QApplication.processEvents()
-
-        dlg.close()
-        self.status.showMessage("Split Data backed up successfully")
-
-    # ---- CSV ----
+    # ---------- CSV ----------
     def import_csv(self):
         path, _ = QFileDialog.getOpenFileName(self, "Open CSV", filter="CSV Files (*.csv)")
         if path:
@@ -214,8 +225,8 @@ class CSVGeneratorApp(QMainWindow):
         values = ['"' + e.text() + '"' for e in self.entries.values()]
 
         with open(path, "w", encoding="utf-8", newline="") as f:
-           f.write(",".join(headers) + "\n")
-           f.write(",".join(values) + "\n")
+            f.write(",".join(headers) + "\n")
+            f.write(",".join(values) + "\n")
 
         self.status.showMessage(f"Saved {os.path.basename(path)}")
 
@@ -232,43 +243,109 @@ class CSVGeneratorApp(QMainWindow):
         values = [v.strip().strip('"') for v in lines[1].split(",")] if len(lines) > 1 else []
 
         while self.form_layout.count():
-            w = self.form_layout.takeAt(0).widget()
-            if w:
-                w.deleteLater()
+            item = self.form_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
 
         self.entries.clear()
 
-        group = QGroupBox("Fields")
-        vlayout = QVBoxLayout(group)
+        group = QGroupBox("CSV Fields")
+        form = QFormLayout(group)
+        form.setLabelAlignment(Qt.AlignmentFlag.AlignRight)
 
         for h, val in zip(headers, values):
-            row = QHBoxLayout()
-            row.addWidget(QLabel(h))
             e = QLineEdit(val)
-            row.addWidget(e)
-            vlayout.addLayout(row)
+            form.addRow(h + ":", e)
             self.entries[h] = e
+
         self.form_layout.addWidget(group)
         self.form_layout.addStretch()
 
+    # ---------- Splitter with Console ----------
+    def run_splitter(self):
+        split_path = self.config.get("split_data_path")
+        if not split_path or not os.path.isdir(split_path):
+            QMessageBox.warning(self, "SplitData not set", "Please select your SplitData folder first.")
+            return
 
+        reply = QMessageBox.question(
+            self,
+            "Run GT2DataSplitter",
+            "This will run GT2DataSplitter.exe.\n\n"
+            "Do NOT close this application while the process is running.\n\n"
+            "Proceed?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
 
-    # ---- Config ----
+        exe_path = resource_path("tool/GT2DataSplitter.exe")
+        if not os.path.isfile(exe_path):
+            QMessageBox.critical(self, "Error", f"GT2DataSplitter.exe not found:\n{exe_path}")
+            return
+
+        # ---- Dialog to show console output ----
+        dlg = QDialog(self)
+        dlg.setWindowTitle("GT2DataSplitter Output")
+        dlg.resize(800, 600)
+        dlg.setModal(True)
+
+        layout = QVBoxLayout(dlg)
+        console = QTextEdit()
+        console.setReadOnly(True)
+        console.setStyleSheet("background-color: #10141b; color: #F79400; font-family: Consolas;")
+        layout.addWidget(console)
+
+        close_btn = QPushButton("Close")
+        close_btn.setEnabled(False)
+        close_btn.clicked.connect(dlg.accept)
+        layout.addWidget(close_btn, alignment=Qt.AlignmentFlag.AlignRight)
+
+        dlg.show()
+
+        # ---- QProcess to capture stdout/stderr ----
+        process = QProcess(dlg)
+        process.setWorkingDirectory(split_path)
+        process.setProcessChannelMode(QProcess.ProcessChannelMode.MergedChannels)
+
+        def on_ready_read():
+            output = process.readAll().data().decode("utf-8")
+            console.moveCursor(console.textCursor().MoveOperation.End)
+            console.insertPlainText(output)
+            console.moveCursor(console.textCursor().MoveOperation.End)
+
+        def on_finished(exit_code, exit_status):
+            console.append(f"\nProcess finished with code {exit_code}")
+            close_btn.setEnabled(True)
+
+        process.readyReadStandardOutput.connect(on_ready_read)
+        process.readyReadStandardError.connect(on_ready_read)
+        process.finished.connect(on_finished)
+
+        process.start(exe_path, [])
+
+    # ---------- Config ----------
     def load_config(self):
-        path = os.path.join(os.path.dirname(sys.executable if getattr(sys, "frozen", False) else __file__), CONFIG_FILE)
+        path = resource_path(CONFIG_FILE)
         if os.path.isfile(path):
             with open(path) as f:
                 return json.load(f)
         return {}
 
     def save_config(self, cfg):
-        path = os.path.join(os.path.dirname(sys.executable if getattr(sys, "frozen", False) else __file__), CONFIG_FILE)
+        path = resource_path(CONFIG_FILE)
         with open(path, "w") as f:
             json.dump(cfg, f, indent=2)
+
 
 # ---- Run ----
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    app.setStyle("Fusion")
+
+    load_stylesheet(app, STYLE_FILE)
+
     win = CSVGeneratorApp()
     win.show()
+
     sys.exit(app.exec())
